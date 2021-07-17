@@ -23,7 +23,6 @@ namespace BrightChain.Engine.Models.Blocks
                     requestTime: sourceBlock.StorageContract.RequestTime,
                     keepUntilAtLeast: sourceBlock.StorageContract.KeepUntilAtLeast,
                     redundancy: sourceBlock.RedundancyContract.RedundancyContractType,
-                    allowCommit: allowCommit,
                     privateEncrypted: sourceBlock.Revokable),
                 data: sourceBlock.Data)
         {
@@ -37,7 +36,6 @@ namespace BrightChain.Engine.Models.Blocks
                     requestTime: blockParams.RequestTime,
                     keepUntilAtLeast: blockParams.KeepUntilAtLeast,
                     redundancy: blockParams.Redundancy,
-                    allowCommit: blockParams.AllowCommit,
                     privateEncrypted: blockParams.PrivateEncrypted),
                 data: data)
         {
@@ -54,14 +52,20 @@ namespace BrightChain.Engine.Models.Blocks
                 requestTime: DateTime.Now,
                 keepUntilAtLeast: DateTime.MaxValue,
                 redundancy: RedundancyContractType.HeapAuto,
-                allowCommit: true,
                 privateEncrypted: false),
             data: new ReadOnlyMemory<byte>() { })
         {
         }
 
+        /// <summary>
+        /// Gets a bool indicating whether the block's data has been loaded from the attached cache, or kept after persisting to cache.
+        /// </summary>
+        public bool DataInMemory { get; }
+
+        /// <summary>
+        /// Boolean indicating whether our data has been disposed.
+        /// </summary>
         private bool disposedValue;
-        //protected BPlusTree<BlockHash, TransactableBlock> tree;
         public ICacheManager<BlockHash, TransactableBlock> CacheManager { get; internal set; }
         public bool Committed { get; protected set; } = false;
         public bool AllowCommit { get; protected set; } = false;
@@ -71,10 +75,8 @@ namespace BrightChain.Engine.Models.Blocks
             CacheManager = cacheManager;
         }
 
-        public static bool operator ==(TransactableBlock a, TransactableBlock b)
-        {
-            return ReadOnlyMemoryComparer<byte>.Compare(a.Data, b.Data) == 0;
-        }
+        public static bool operator ==(TransactableBlock a, TransactableBlock b) =>
+            a.BlockSize == b.BlockSize && ReadOnlyMemoryComparer<byte>.Compare(a.Data, b.Data) == 0;
 
         public static bool operator !=(TransactableBlock a, TransactableBlock b)
         {
@@ -96,33 +98,47 @@ namespace BrightChain.Engine.Models.Blocks
             Committed = false;
         }
 
-        public override Block NewBlock(BlockParams blockParams, ReadOnlyMemory<byte> data)
+        public override TransactableBlock NewBlock(BlockParams blockParams, ReadOnlyMemory<byte> data)
         {
             return new TransactableBlock(
-blockParams: new TransactableBlockParams(
-cacheManager: CacheManager,
-blockParams: blockParams),
-data: data);
+                blockParams: new TransactableBlockParams(
+                    cacheManager: CacheManager,
+                    allowCommit: this.AllowCommit,
+                    blockParams: this.AsBlock.BlockParams),
+                data: data);
         }
 
         public override bool Equals(object obj)
         {
-            return obj is Block ? ReadOnlyMemoryComparer<byte>.Compare(Data, (obj as Block).Data) == 0 : false;
+            return obj is Block block ? block.BlockSize == this.BlockSize && ReadOnlyMemoryComparer<byte>.Compare(this.Data, block.Data) == 0 : false;
         }
 
         public override int GetHashCode()
         {
-            return Data.GetHashCode();
+            return this.Data.GetHashCode();
         }
 
         public int CompareTo(TransactableBlock other)
         {
-            return ReadOnlyMemoryComparer<byte>.Compare(Data, other.Data);
+            return other.BlockSize == this.BlockSize ? ReadOnlyMemoryComparer<byte>.Compare(this.Data, other.Data) : (other.Data.Length > this.Data.Length ? -1 : 1);
         }
 
         public int CompareTo(ITransactableBlock other)
         {
-            return other is null ? -1 : ReadOnlyMemoryComparer<byte>.Compare(Data, other.Data);
+            return other.BlockSize == this.BlockSize ? ReadOnlyMemoryComparer<byte>.Compare(Data, other.Data) : other.Data.Length > this.Data.Length ? -1 : 1;
+        }
+
+        public override TransactableBlockParams BlockParams
+        {
+            get => new TransactableBlockParams(
+                cacheManager: this.CacheManager,
+                allowCommit: this.AllowCommit,
+                blockParams: new BlockParams(
+                    blockSize: this.BlockSize,
+                    requestTime: this.StorageContract.RequestTime,
+                    keepUntilAtLeast: this.StorageContract.KeepUntilAtLeast,
+                    redundancy: this.RedundancyContract.RedundancyContractType,
+                    privateEncrypted: false));
         }
 
         protected virtual void Dispose(bool disposing)

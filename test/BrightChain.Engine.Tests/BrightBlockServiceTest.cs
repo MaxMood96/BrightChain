@@ -1,6 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
+using BrightChain.Engine.Enumerations;
+using BrightChain.Engine.Exceptions;
+using BrightChain.Engine.Models.Blocks;
 using BrightChain.Engine.Models.Blocks.Chains;
+using BrightChain.Engine.Models.Blocks.DataObjects;
 using BrightChain.Engine.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,10 +47,10 @@ namespace BrightChain.Engine.Tests
         [TestMethod]
         public void ItInitializesTest()
         {
-            var loggerMock = Mock.Get(_logger);
+            var loggerMock = Mock.Get(this._logger);
 
             var brightChainService = new BrightBlockService(
-                logger: _loggerFactory);
+                logger: this._loggerFactory);
 
             loggerMock.Verify(l => l.Log(
                 LogLevel.Information,
@@ -54,44 +61,167 @@ namespace BrightChain.Engine.Tests
             loggerMock.VerifyNoOtherCalls();
         }
 
-        private static void CreateRandomFile(string filePath, int sizeInMb)
+        /// <summary>
+        /// TODO: move to BlockHashTests.
+        /// </summary>
+        [TestMethod]
+        public void ItHasCorrectHashSizesTest()
         {
-            // Note: block size must be a factor of 1MB to avoid rounding errors
-            const int blockSize = 1024 * 8;
-            const int blocksPerMb = (1024 * 1024) / blockSize;
-
-            using (FileStream stream = File.OpenWrite(filePath))
+            foreach (BlockSize blockSize in Enum.GetValues(typeof(BlockSize)))
             {
-                for (int i = 0; i < sizeInMb * blocksPerMb; i++)
+                if (blockSize == BlockSize.Unknown)
                 {
-                    var data = Helpers.RandomDataHelper.RandomReadOnlyBytes(blockSize);
-                    stream.Write(data.ToArray(), 0, blockSize);
+                    continue;
                 }
+
+                var expectedVector = Helpers.Utilities.GetZeroVector(blockSize);
+                BlockHash zeroVector;
+                Helpers.Utilities.GenerateZeroVectorAndVerify(blockSize, out zeroVector);
+                Assert.IsNotNull(zeroVector);
+                Assert.AreEqual(expectedVector.ToString(), zeroVector.ToString());
             }
         }
 
-        [TestMethod]
-        public void ItWhitensBlocksAndCreatesCblsTest()
+        public static BlockSize RandomBlockSize()
         {
-            var loggerMock = Mock.Get(_logger);
+            Array values = Enum.GetValues(typeof(BlockSize));
+            Random random = new Random();
+            var blockSize = (BlockSize)values.GetValue(random.Next(values.Length));
+            return (blockSize == BlockSize.Unknown) ? RandomBlockSize() : blockSize;
+        }
+
+        private static long CreateRandomFile(string filePath, int sizeInMb, out byte[] randomFileHash, int sizeOffset = 0)
+        {
+            const int writeBufferSize = 1024 * 8;
+            int totalBytes = (sizeInMb * 1024 * 1024) - sizeOffset;
+
+            if ((sizeOffset < 0) || (sizeOffset > writeBufferSize))
+            {
+                throw new Exception(nameof(sizeOffset));
+            }
+
+
+            var bytesWritten = 0;
+            var bytesRemaining = totalBytes;
+            using (SHA256 sha = SHA256.Create())
+            {
+                using (FileStream fileStream = File.OpenWrite(filePath))
+                {
+                    while (bytesWritten < totalBytes)
+                    {
+                        var finalBlock = bytesRemaining <= writeBufferSize;
+                        var lengthToWrite = finalBlock ? writeBufferSize - sizeOffset : writeBufferSize;
+                        var data = Helpers.RandomDataHelper.RandomBytes(lengthToWrite);
+                        Assert.AreEqual(lengthToWrite, data.Length);
+                        fileStream.Write(data, 0, data.Length);
+                        bytesWritten += data.Length;
+                        bytesRemaining -= data.Length;
+                        if (finalBlock)
+                        {
+                            Assert.AreEqual(0, bytesRemaining);
+                            sha.TransformFinalBlock(data, 0, data.Length);
+                            randomFileHash = sha.Hash;
+                            fileStream.Flush();
+                            fileStream.Close();
+                            FileInfo fileInfo = new FileInfo(filePath);
+                            Assert.AreEqual(bytesWritten, fileInfo.Length);
+                            Assert.AreEqual(totalBytes, bytesWritten);
+
+                            return bytesWritten;
+                        }
+                        else
+                        {
+                            sha.TransformBlock(data, 0, lengthToWrite, null, 0);
+                        }
+                    }
+                }
+            }
+
+            randomFileHash = null;
+            return -1;
+        }
+
+        [TestMethod]
+
+        public async Task ItBrightensBlocksAndCreatesCblsTest()
+        {
+            var loggerMock = Mock.Get(this._logger);
 
             var brightChainService = new BrightBlockService(
-                logger: _loggerFactory);
+                logger: this._loggerFactory);
 
             var fileName = Path.GetTempFileName();
-            CreateRandomFile(fileName, 10);
-            var cbl = brightChainService.CreateCblFromFile(
-                fileName: fileName,
-                keepUntilAtLeast: DateTime.MaxValue,
-                redundancy: Enumerations.RedundancyContractType.HeapAuto,
-                allowCommit: false,
-                privateEncrypted: false,
-                blockSize: Enumerations.BlockSize.Medium
-            );
-            Assert.IsTrue(cbl.Validate());
+            byte[] sourceFileHash;
+            long expectedLength = CreateRandomFile(fileName, 10, out sourceFileHash, 3); // don't land on even block mark for data testing
 
-            var cblMap = cbl.BlockMap;
-            Assert.IsTrue(cblMap is BlockChainFileMap);
+            ConstituentBlockListBlock[] cblBlocks = (ConstituentBlockListBlock[])await brightChainService.MakeCBLChainFromParamsAsync(
+                fileName: fileName,
+                blockParams: new BlockParams(
+                    requestTime: DateTime.Now,
+                    keepUntilAtLeast: DateTime.MaxValue,
+                    redundancy: Enumerations.RedundancyContractType.HeapAuto,
+                    privateEncrypted: false,
+                    blockSize: RandomBlockSize()));
+
+            foreach (var cbl in cblBlocks)
+            {
+                Assert.IsTrue(cbl.Validate());
+                Assert.AreEqual(expectedLength, cbl.TotalLength);
+                Assert.AreEqual(
+                    Helpers.Utilities.HashToFormattedString(sourceFileHash),
+                    Helpers.Utilities.HashToFormattedString(cbl.SourceId.HashBytes.ToArray()));
+
+                var cblMap = cbl.GenerateBlockMap();
+                Assert.IsTrue(cblMap is BlockChainFileMap);
+            }
+
+            loggerMock.Verify(l => l.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception>(),
+                (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()), Times.Exactly(2));
+            loggerMock.VerifyNoOtherCalls();
+        }
+
+        [TestMethod]
+        public async Task ItReadsCBLsBackToDisk()
+        {
+            var loggerMock = Mock.Get(this._logger);
+
+            var brightChainService = new BrightBlockService(
+                logger: this._loggerFactory);
+
+            var fileName = Path.GetTempFileName();
+            byte[] sourceFileHash;
+            long expectedLength = CreateRandomFile(fileName, 10, out sourceFileHash, 3); // don't land on even block mark for data testing
+
+            var blockSize = RandomBlockSize();
+            ConstituentBlockListBlock[] cblBlocks = (ConstituentBlockListBlock[])await brightChainService.MakeCBLChainFromParamsAsync(
+                fileName: fileName,
+                blockParams: new BlockParams(
+                    requestTime: DateTime.Now,
+                    keepUntilAtLeast: DateTime.MaxValue,
+                    redundancy: Enumerations.RedundancyContractType.HeapAuto,
+                    privateEncrypted: false,
+                    blockSize: blockSize));
+
+            foreach (var cbl in cblBlocks)
+            {
+                Assert.IsTrue(cbl.Validate());
+
+                Assert.AreEqual(expectedLength, cbl.TotalLength);
+                Assert.AreEqual(
+                    Helpers.Utilities.HashToFormattedString(sourceFileHash),
+                    Helpers.Utilities.HashToFormattedString(cbl.SourceId.HashBytes.ToArray()));
+            }
+            // this is off- can't just give the last block.
+            throw new NotImplementedException();
+            var restoredFile = await brightChainService.RestoreFileFromCBLAsync(cblBlocks[cblBlocks.Length - 1]);
+
+            Assert.AreEqual(
+                Helpers.Utilities.HashToFormattedString(sourceFileHash),
+                Helpers.Utilities.HashToFormattedString(restoredFile.SourceId.HashBytes.ToArray()));
 
             loggerMock.Verify(l => l.Log(
                 LogLevel.Information,

@@ -9,18 +9,23 @@ namespace BrightChain.Engine.Services
     /// It is responsible for XORing blocks with random data blocks in order to correlate
     /// the user data with random data and other user blocks.
     /// </summary>
-    public class BlockWhitener
+    public class BlockBrightener
     {
         public static byte TupleCount { get; } = 5;
 
         private readonly MemoryBlockCacheManager pregeneratedRandomizerCache;
 
-        public BlockWhitener(MemoryBlockCacheManager pregeneratedRandomizerCache)
+        public BlockBrightener(MemoryBlockCacheManager pregeneratedRandomizerCache)
         {
             this.pregeneratedRandomizerCache = pregeneratedRandomizerCache;
         }
 
-        public Block Whiten(SourceBlock block)
+        /// <summary>
+        /// Brightening is the process of XORing to correlate the data with block of random data and make it appear more random or "white" as white light is broad multi-spectrum light.
+        /// </summary>
+        /// <param name="block"></param>
+        /// <returns></returns>
+        public BrightenedBlock Brighten(SourceBlock block)
         {
             // the incoming block should be a raw disk block and is never used again
             Block[] tupleStripeBlocks = new Block[TupleCount - 1];
@@ -30,16 +35,21 @@ namespace BrightChain.Engine.Services
                 // for now just generate on demand, but these can be pre-seeded
                 tupleStripeBlocks[i] = new RandomizerBlock(
                     new TransactableBlockParams(
-                    cacheManager: pregeneratedRandomizerCache,
+                    cacheManager: this.pregeneratedRandomizerCache,
+                    allowCommit: true,
                     blockParams: new BlockParams(
                         blockSize: block.BlockSize,
                         requestTime: DateTime.Now,
                         keepUntilAtLeast: block.StorageContract.KeepUntilAtLeast,
                         redundancy: block.RedundancyContract.RedundancyContractType,
-                        allowCommit: true,
                         privateEncrypted: false)));
             }
-            return block.XOR(tupleStripeBlocks);
+
+            var xorBlock = block.XOR(tupleStripeBlocks);
+            return new BrightenedBlock(
+                blockParams: xorBlock.BlockParams,
+                data: xorBlock.Data,
+                constituentBlocks: xorBlock.ConstituentBlocks);
         }
     }
 }

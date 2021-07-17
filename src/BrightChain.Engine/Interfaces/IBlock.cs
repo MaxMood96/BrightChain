@@ -1,4 +1,5 @@
 using System;
+using BrightChain.Engine.Enumerations;
 using BrightChain.Engine.Models.Blocks;
 using BrightChain.Engine.Models.Contracts;
 using BrightChain.Engine.Models.Entities;
@@ -11,11 +12,15 @@ namespace BrightChain.Engine.Interfaces
     public interface IBlock : IDisposable, IComparable<IBlock>, IValidatable
     {
         /// <summary>
-        /// Block's SHA-256 hash
+        /// Block's SHA-256 hash.
         /// </summary>
         BlockHash Id { get; }
         /// <summary>
-        /// Function to XOR this block's data with another
+        /// Gets a BlockSize enum associated with it's data length.
+        /// </summary>
+        BlockSize BlockSize { get; }
+        /// <summary>
+        /// Function to XOR this block's data with another.
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>

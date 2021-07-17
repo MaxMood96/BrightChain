@@ -77,7 +77,7 @@ namespace BrightChain.Engine.Extensions
 
             var exceptions = new List<BrightChainValidationException>();
 
-            // TODO: validate all data against finalDataHash
+            // TODO: validate all data against SourceId
 
             // fill the "out" variable
             validationExceptions = exceptions.ToArray();
