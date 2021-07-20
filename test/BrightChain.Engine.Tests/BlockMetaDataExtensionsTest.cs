@@ -90,7 +90,7 @@ namespace BrightChain.Engine.Tests
                                 sourceId: new BlockHash(dummyBlock),
                                 segmentHash: new SegmentHash(dummyBlock.Data),
                                 totalLength: 0,
-                                constituentBlocks: new Block[] { dummyBlock }));
+                                constituentBlocks: new BlockHash[] { dummyBlock.Id }));
 
             Assert.IsTrue(block.Validate());
             var metaData = block.Metadata;
@@ -185,7 +185,7 @@ namespace BrightChain.Engine.Tests
                                 sourceId: new BlockHash(dummyBlock),
                                 segmentHash: new SegmentHash(dummyBlock.Data),
                                 totalLength: 0,
-                                constituentBlocks: new Block[] { dummyBlock }));
+                                constituentBlocks: new BlockHash[] { dummyBlock.Id }));
 
             Assert.IsTrue(block.Validate());
             var metaData = block.Metadata;
@@ -208,7 +208,7 @@ namespace BrightChain.Engine.Tests
                         computed: true), // known incorrect hash
                     segmentHash: new SegmentHash(dummyBlock.Data),
                     totalLength: (long)BlockSizeMap.BlockSize(BlockSize.Message),
-                    constituentBlocks: new Block[] { dummyBlock }));
+                    constituentBlocks: new BlockHash[] { dummyBlock.Id }));
             Assert.IsTrue(block2.TryRestoreMetadataFromBytes(metaData));
             Assert.AreEqual(block.RedundancyContract, block2.RedundancyContract);
             Assert.AreEqual(block.StorageContract, block2.RedundancyContract.StorageContract);

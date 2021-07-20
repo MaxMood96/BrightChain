@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using BrightChain.Engine.Models.Blocks;
 using BrightChain.Engine.Models.Blocks.DataObjects;
 
@@ -25,15 +26,15 @@ namespace BrightChain.Engine.Services
         /// </summary>
         /// <param name="block"></param>
         /// <returns></returns>
-        public BrightenedBlock Brighten(SourceBlock block)
+        public BrightenedBlock Brighten(SourceBlock block, out Block[] randomizersUsed)
         {
             // the incoming block should be a raw disk block and is never used again
-            Block[] tupleStripeBlocks = new Block[TupleCount - 1];
-            for (int i = 0; i < tupleStripeBlocks.Length; i++)
+            randomizersUsed = new Block[TupleCount - 1];
+            for (int i = 0; i < randomizersUsed.Length; i++)
             {
                 // TODO: select or generate pre-generated random blocks (determine mixing)
                 // for now just generate on demand, but these can be pre-seeded
-                tupleStripeBlocks[i] = new RandomizerBlock(
+                randomizersUsed[i] = new RandomizerBlock(
                     new TransactableBlockParams(
                     cacheManager: this.pregeneratedRandomizerCache,
                     allowCommit: true,
@@ -45,11 +46,11 @@ namespace BrightChain.Engine.Services
                         privateEncrypted: false)));
             }
 
-            var xorBlock = block.XOR(tupleStripeBlocks);
+            var xorBlock = block.XOR(randomizersUsed);
             return new BrightenedBlock(
                 blockParams: xorBlock.BlockParams,
                 data: xorBlock.Data,
-                constituentBlocks: xorBlock.ConstituentBlocks);
+                constituentBlocks: randomizersUsed.Select(b => b.Id).ToArray());
         }
     }
 }

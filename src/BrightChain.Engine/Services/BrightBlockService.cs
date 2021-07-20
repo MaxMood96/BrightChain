@@ -132,7 +132,20 @@ namespace BrightChain.Engine.Services
                                     blockParams: blockParams),
                                 data: buffer);
 
-                        yield return this.blockBrightener.Brighten(sourceBlock);
+                        Block[] randomizersUsed;
+                        var brightenedBlock = this.blockBrightener.Brighten(
+                            block: sourceBlock,
+                            randomizersUsed: out randomizersUsed);
+
+                        foreach (var block in randomizersUsed)
+                        {
+                            this.blockMemoryCache.Set(block: new TransactableBlock(
+                                cacheManager: this.blockMemoryCache,
+                                sourceBlock: block,
+                                allowCommit: true));
+                        }
+
+                        yield return brightenedBlock;
                     } // end while
 
                     if (new DataHash(
@@ -175,7 +188,7 @@ namespace BrightChain.Engine.Services
             BlockHash? previousCblEmitted = null;
             var cblsEmittedById = new Dictionary<BlockHash, ConstituentBlockListBlock>();
             var cblsEmitted = new List<ConstituentBlockListBlock>();
-            var blocksUsedThisSegment = new List<Block>();
+            var blocksUsedThisSegment = new List<BlockHash>();
             var fileInfo = new FileInfo(fileName);
             var sourceHash = CreateFileDataHash(fileInfo: fileInfo, blockType: typeof(SourceBlock), blockSize: blockParams.BlockSize);
             var iBlockSize = BlockSizeMap.BlockSize(blockParams.BlockSize);
@@ -197,7 +210,7 @@ namespace BrightChain.Engine.Services
                     brightenedBlocksConsumed++;
                     bytesRemaining -= iBlockSize;
                     bytesThisSegment += iBlockSize;
-                    blocksUsedThisSegment.Add(brightenedBlock);
+                    blocksUsedThisSegment.Add(brightenedBlock.Id);
                     blocksUsedThisSegment.AddRange(brightenedBlock.ConstituentBlocks);
                     var cblFullAfterThisBlock = ++blocksThisSegment == hashesPerSegment;
 
@@ -246,7 +259,7 @@ namespace BrightChain.Engine.Services
             return cblsEmitted;
         }
 
-        public async Task<SuperConstituentBlockListBlock> MakeSuperCBLFromCBLChain(IEnumerable<ConstituentBlockListBlock> chainedCbls)
+        public async Task<SuperConstituentBlockListBlock> MakeSuperCBLFromCBLChain(BlockParams blockParams, IEnumerable<ConstituentBlockListBlock> chainedCbls)
         {
             throw new NotImplementedException();
             return new SuperConstituentBlockListBlock(
@@ -254,14 +267,16 @@ namespace BrightChain.Engine.Services
                         blockParams: new TransactableBlockParams(
                             cacheManager: this.blockMemoryCache,
                             allowCommit: true,
-                            blockParams: null),
+                            blockParams: blockParams),
                         sourceId: null,
                         segmentHash: null,
                         totalLength: 0,
-                        constituentBlocks: chainedCbls,
+                        constituentBlocks: chainedCbls.Select(c => c.Id),
                         previous: null,
                         next: null),
-                    data: null);
+                    data: ((ConstituentBlockListBlock[])chainedCbls)
+                    .SelectMany(c => c.Id.HashBytes.ToArray())
+                    .ToArray());
         }
 
         public async Task<Block> MakeCblOrSuperCblFromFileAsync(string fileName, BlockParams blockParams)
@@ -281,8 +296,10 @@ namespace BrightChain.Engine.Services
             }
 
             return await this
-                .MakeSuperCBLFromCBLChain(firstPass)
-                    .ConfigureAwait(false);
+                .MakeSuperCBLFromCBLChain(
+                    blockParams: blockParams,
+                    chainedCbls: firstPass)
+                        .ConfigureAwait(false);
         }
 
         /// <summary>

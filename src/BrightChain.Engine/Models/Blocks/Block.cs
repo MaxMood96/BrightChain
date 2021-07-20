@@ -50,7 +50,7 @@ namespace BrightChain.Engine.Models.Blocks
         /// Gets or sets a list of the blocks, in order, required to complete this block. Not persisted to disk.
         /// Generally only used during construction of a chain
         /// </summary>
-        public IEnumerable<Block> ConstituentBlocks { get; protected set; }
+        public IEnumerable<BlockHash> ConstituentBlocks { get; protected set; }
 
         /// <summary>
         /// Emits the serialization of the block minus data and any ignored attributes (including itself).
@@ -84,7 +84,7 @@ namespace BrightChain.Engine.Models.Blocks
                 RedundancyContractType: blockParams.Redundancy);
             this.Data = data;
             this.Id = new BlockHash(this); // must happen after data is in place
-            this.ConstituentBlocks = new Block[] { };
+            this.ConstituentBlocks = new BlockHash[] { };
             this.HashVerified = Validate(); // also fills in any validation errors in the array
             this.Signature = null;
             this.SignatureVerified = false;
@@ -103,7 +103,7 @@ namespace BrightChain.Engine.Models.Blocks
                 throw new BrightChainException("Unexpected SourceBlock");
             }
 
-            if (Data.Length != other.Data.Length)
+            if (this.Data.Length != other.Data.Length)
             {
                 throw new BrightChainException("BlockSize mismatch");
             }
@@ -131,18 +131,18 @@ namespace BrightChain.Engine.Models.Blocks
                 ),
                 data: new ReadOnlyMemory<byte>(xorData)
             ); // these XOR functions should be one of the only places this even happens
-            var newList = new List<IBlock>(this.ConstituentBlocks);
+            var newList = new List<BlockHash>(this.ConstituentBlocks);
             if (!(this is SourceBlock))
             {
-                newList.Add(this);
+                newList.Add(this.Id);
             }
 
             if (!(other is SourceBlock))
             {
-                newList.Add(other);
+                newList.Add(other.Id);
             }
 
-            result.ConstituentBlocks = (IEnumerable<Block>)newList.ToArray();
+            result.ConstituentBlocks = newList;
             return result;
         }
 
@@ -156,10 +156,10 @@ namespace BrightChain.Engine.Models.Blocks
             DateTime keepUntil = this.StorageContract.KeepUntilAtLeast;
             RedundancyContractType redundancy = this.RedundancyContract.RedundancyContractType;
             int blockSize = BlockSizeMap.Map[this.BlockSize];
-            var newList = new List<Block>(this.ConstituentBlocks);
+            var newList = new List<BlockHash>(this.ConstituentBlocks);
             if (!(this is SourceBlock))
             {
-                newList.Add(this);
+                newList.Add(this.Id);
             }
 
             byte[] xorData = this.Data.ToArray();
@@ -189,7 +189,7 @@ namespace BrightChain.Engine.Models.Blocks
                     xorData[i] = (byte)(xorData[0] ^ xorWith[i]);
                 }
 
-                newList.Add(b);
+                newList.Add(b.Id);
             }
 
             var result = NewBlock(

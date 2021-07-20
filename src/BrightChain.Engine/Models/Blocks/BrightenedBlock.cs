@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using BrightChain.Engine.Extensions;
 using BrightChain.Engine.Helpers;
 using BrightChain.Engine.Models.Blocks.DataObjects;
@@ -12,7 +13,7 @@ namespace BrightChain.Engine.Models.Blocks
     /// </summary>
     public class BrightenedBlock : SourceBlock, IComparable<BrightenedBlock>, IComparable<Block>
     {
-        public BrightenedBlock(BlockParams blockParams, ReadOnlyMemory<byte> data, IEnumerable<Block> constituentBlocks)
+        public BrightenedBlock(BlockParams blockParams, ReadOnlyMemory<byte> data, IEnumerable<BlockHash> constituentBlocks)
             : base(
                 blockParams: blockParams,
                 data: data)

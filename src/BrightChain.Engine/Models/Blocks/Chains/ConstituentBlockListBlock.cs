@@ -24,17 +24,9 @@ namespace BrightChain.Engine.Models.Blocks.Chains
         /// <param name="blockParams"></param>
         public ConstituentBlockListBlock(ConstituentBlockListBlockParams blockParams)
         : base(
-              blockParams: new TransactableBlockParams(
-                  cacheManager: blockParams.CacheManager,
-                  allowCommit: blockParams.AllowCommit,
-                  blockParams: new BlockParams(
-                      blockSize: blockParams.BlockSize,
-                      requestTime: blockParams.RequestTime,
-                      keepUntilAtLeast: blockParams.KeepUntilAtLeast,
-                      redundancy: blockParams.Redundancy,
-                      privateEncrypted: blockParams.PrivateEncrypted)),
+              blockParams: blockParams,
               data: blockParams.ConstituentBlocks
-                        .SelectMany(b => b.Id.HashBytes.ToArray())
+                        .SelectMany(b => b.HashBytes.ToArray())
                          .ToArray())
         {
             // TODO : if finalBlockHash is null, reconstitute and compute- or accept the validation result's hash essentially?
@@ -62,7 +54,7 @@ namespace BrightChain.Engine.Models.Blocks.Chains
                             requestTime: this.StorageContract.RequestTime,
                             keepUntilAtLeast: this.StorageContract.KeepUntilAtLeast,
                             redundancy: this.RedundancyContract.RedundancyContractType,
-                            privateEncrypted: false)),
+                            privateEncrypted: this.PrivateEncrypted)),
                     sourceId: this.SourceId,
                     segmentHash: this.SegmentId,
                     totalLength: this.TotalLength,
@@ -121,28 +113,18 @@ namespace BrightChain.Engine.Models.Blocks.Chains
         public BrokeredAnonymityIdentifier CreatorId { get; set; }
 
         /// <summary>
-        /// Gets an array of the constituent block hashes this block contains.
-        /// </summary>
-        public IEnumerable<BlockHash> ConstituentBlockHashes =>
-            this.ConstituentBlocks
-                .Select(b => b.Id)
-                    .ToArray();
-
-        /// <summary>
         /// Gets an array of the bytes of the constituent block hashes for writing to disk.
         /// </summary>
         public ReadOnlyMemory<byte> ConstituentBlockHashesBytes => new ReadOnlyMemory<byte>(
                 this.ConstituentBlocks
                     .SelectMany(b =>
-                        b.Id.HashBytes.ToArray())
+                        b.HashBytes.ToArray())
                     .ToArray());
 
         /// <summary>
         /// Gets a value indicating the computed cost of storing this contract.
         /// </summary>
-        public double TotalCost =>
-            this.ConstituentBlocks
-                .Sum(b => b.RedundancyContract.Cost);
+        public double TotalCost { get; set; }
 
         /// <summary>
         /// Gets an int representing the computed capacity of this block in terms of number of BlockHashes.

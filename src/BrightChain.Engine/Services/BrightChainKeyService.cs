@@ -69,14 +69,14 @@ namespace BrightChain.Engine.Services
             });
         }
 
-        public static string CreateSignedJwt(ECDsa eCDsa)
+        public static string CreateSignedJwt(ECDsa eCDsa, string audience)
         {
             var now = DateTime.UtcNow;
             var tokenHandler = new JwtSecurityTokenHandler();
 
             var jwtToken = tokenHandler.CreateJwtSecurityToken(
                 issuer: "BrightChain",
-                audience: "you",
+                audience: audience,
                 subject: null,
                 notBefore: now,
                 expires: now.AddMinutes(30),
@@ -88,7 +88,7 @@ namespace BrightChain.Engine.Services
             return tokenHandler.WriteToken(jwtToken);
         }
 
-        public static bool VerifySignedJwt(ECDsa eCDsa, string token)
+        public static bool VerifySignedJwt(ECDsa eCDsa, string token, string audience)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
 
@@ -97,7 +97,7 @@ namespace BrightChain.Engine.Services
                 validationParameters: new TokenValidationParameters
                 {
                     ValidIssuer = "BrightChain",
-                    ValidAudience = "you",
+                    ValidAudience = audience,
                     IssuerSigningKey = new ECDsaSecurityKey(eCDsa),
                 },
                 validatedToken: out var parsedToken);

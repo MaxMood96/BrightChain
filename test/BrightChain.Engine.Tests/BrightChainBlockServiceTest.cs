@@ -21,7 +21,7 @@ namespace BrightChain.Engine.Tests
     /// Exercises the core API service
     /// </summary>
     [TestClass]
-    public class BrightBlockServiceTest
+    public class BrightChainBlockServiceTest
     {
         private ILoggerFactory _loggerFactory;
         private IConfiguration _configuration;
@@ -31,15 +31,15 @@ namespace BrightChain.Engine.Tests
         [TestInitialize]
         public void PreTestSetup()
         {
-            _configuration = new Mock<IConfiguration>().Object;
-            _services = new Mock<IServiceCollection>().Object;
-            _logger = new Mock<ILogger>().Object;
+            this._configuration = new Mock<IConfiguration>().Object;
+            this._services = new Mock<IServiceCollection>().Object;
+            this._logger = new Mock<ILogger>().Object;
 
             var factoryMock = new Mock<ILoggerFactory>();
 
             factoryMock
                 .SetupAllProperties()
-                .Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(_logger);
+                .Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(this._logger);
 
             _loggerFactory = factoryMock.Object;
         }
@@ -99,7 +99,6 @@ namespace BrightChain.Engine.Tests
             {
                 throw new Exception(nameof(sizeOffset));
             }
-
 
             var bytesWritten = 0;
             var bytesRemaining = totalBytes;

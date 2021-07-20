@@ -6,7 +6,7 @@ namespace BrightChain.Engine.Models.Blocks.DataObjects
     {
         public readonly DataHash SourceId;
         public readonly long TotalLength;
-        public readonly IEnumerable<Block> ConstituentBlocks;
+        public readonly IEnumerable<BlockHash> ConstituentBlocks;
 
         /// <summary>
         /// Hash of the sum bytes of the segment of the file contained in this CBL when assembled in order.
@@ -15,7 +15,7 @@ namespace BrightChain.Engine.Models.Blocks.DataObjects
         public readonly BlockHash Previous = null;
         public readonly BlockHash Next = null;
 
-        public ConstituentBlockListBlockParams(TransactableBlockParams blockParams, DataHash sourceId, SegmentHash segmentHash, long totalLength, IEnumerable<Block> constituentBlocks, BlockHash previous = null, BlockHash next = null)
+        public ConstituentBlockListBlockParams(TransactableBlockParams blockParams, DataHash sourceId, SegmentHash segmentHash, long totalLength, IEnumerable<BlockHash> constituentBlocks, BlockHash previous = null, BlockHash next = null)
        : base(
              cacheManager: blockParams.CacheManager,
              allowCommit: blockParams.AllowCommit,

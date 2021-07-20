@@ -44,7 +44,7 @@ namespace BrightChain.Engine.Models.Blocks.Chains
 
         public async IAsyncEnumerable<TupleStripe> ReconstructTupleStripes()
         {
-            Block[] listBlocks = (Block[])this.ConstituentBlockListBlock.ConstituentBlocks;
+            BlockHash[] listBlocks = (BlockHash[])this.ConstituentBlockListBlock.ConstituentBlocks;
             if ((listBlocks.Length % this.ConstituentBlockListBlock.TupleCount) != 0)
             {
                 throw new BrightChainException("CBL length is not a multiple of the tuple count");
@@ -53,7 +53,8 @@ namespace BrightChain.Engine.Models.Blocks.Chains
             var tupleGroups = TakeIntoGroupsOf(listBlocks, this.ConstituentBlockListBlock.TupleCount);
             await foreach (var tupleGroup in tupleGroups)
             {
-                yield return new TupleStripe(this.ConstituentBlockListBlock.TupleCount, this.ConstituentBlockListBlock.BlockSize, tupleGroup);
+                throw new NotImplementedException();
+                //yield return new TupleStripe(this.ConstituentBlockListBlock.TupleCount, this.ConstituentBlockListBlock.BlockSize, tupleGroup);
             }
 
             yield break;

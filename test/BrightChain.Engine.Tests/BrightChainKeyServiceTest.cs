@@ -59,8 +59,8 @@ namespace BrightChain.Engine.Tests
             var privateECDsa = BrightChainKeyService.LoadPrivateKey(privateKey);
             var publicECDsa = BrightChainKeyService.LoadPublicKey(publicKey);
 
-            var jwt = BrightChainKeyService.CreateSignedJwt(privateECDsa);
-            var isValid = BrightChainKeyService.VerifySignedJwt(publicECDsa, jwt);
+            var jwt = BrightChainKeyService.CreateSignedJwt(privateECDsa, "user1234");
+            var isValid = BrightChainKeyService.VerifySignedJwt(publicECDsa, jwt, "user1234");
             Assert.IsTrue(isValid);
         }
     }

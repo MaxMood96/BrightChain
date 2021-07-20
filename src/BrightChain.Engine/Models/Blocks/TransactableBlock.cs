@@ -15,45 +15,38 @@ namespace BrightChain.Engine.Models.Blocks
     /// </summary>
     public class TransactableBlock : Block, IDisposable, ITransactable, ITransactableBlock, IComparable<TransactableBlock>, IComparable<ITransactableBlock>
     {
-
-        public TransactableBlock(BlockCacheManager cacheManager, RestoredBlock sourceBlock, bool allowCommit)
+        public TransactableBlock(BlockCacheManager cacheManager, Block sourceBlock, bool allowCommit)
             : base(
-                blockParams: new BlockParams(
-                    blockSize: sourceBlock.BlockSize,
-                    requestTime: sourceBlock.StorageContract.RequestTime,
-                    keepUntilAtLeast: sourceBlock.StorageContract.KeepUntilAtLeast,
-                    redundancy: sourceBlock.RedundancyContract.RedundancyContractType,
-                    privateEncrypted: sourceBlock.Revokable),
+                blockParams: sourceBlock.BlockParams,
                 data: sourceBlock.Data)
         {
-            CacheManager = cacheManager;
+            this.CacheManager = cacheManager;
+            this.AllowCommit = allowCommit;
         }
 
-        public TransactableBlock(TransactableBlockParams blockParams, ReadOnlyMemory<byte> data) :
-            base(
-                blockParams: new BlockParams(
-                    blockSize: blockParams.BlockSize,
-                    requestTime: blockParams.RequestTime,
-                    keepUntilAtLeast: blockParams.KeepUntilAtLeast,
-                    redundancy: blockParams.Redundancy,
-                    privateEncrypted: blockParams.PrivateEncrypted),
+        public TransactableBlock(TransactableBlockParams blockParams, ReadOnlyMemory<byte> data)
+            : base(
+                blockParams: blockParams,
                 data: data)
         {
-            CacheManager = blockParams.CacheManager;
-            disposedValue = false;
+            this.CacheManager = blockParams.CacheManager;
+            this.AllowCommit = blockParams.AllowCommit;
+            this.disposedValue = false;
         }
 
         /// <summary>
-        /// For test methods
+        /// Initializes a new instance of the <see cref="TransactableBlock"/> class.
+        /// For test methods.
         /// </summary>
-        internal TransactableBlock() : base(
-            blockParams: new BlockParams(
-                blockSize: BlockSize.Message,
-                requestTime: DateTime.Now,
-                keepUntilAtLeast: DateTime.MaxValue,
-                redundancy: RedundancyContractType.HeapAuto,
-                privateEncrypted: false),
-            data: new ReadOnlyMemory<byte>() { })
+        internal TransactableBlock()
+            : base(
+                blockParams: new BlockParams(
+                    blockSize: BlockSize.Message,
+                    requestTime: DateTime.Now,
+                    keepUntilAtLeast: DateTime.MaxValue,
+                    redundancy: RedundancyContractType.HeapAuto,
+                    privateEncrypted: false),
+                data: new ReadOnlyMemory<byte>() { })
         {
         }
 
@@ -66,14 +59,12 @@ namespace BrightChain.Engine.Models.Blocks
         /// Boolean indicating whether our data has been disposed.
         /// </summary>
         private bool disposedValue;
-        public ICacheManager<BlockHash, TransactableBlock> CacheManager { get; internal set; }
-        public bool Committed { get; protected set; } = false;
-        public bool AllowCommit { get; protected set; } = false;
 
-        public void SetCacheManager(ICacheManager<BlockHash, TransactableBlock> cacheManager)
-        {
-            CacheManager = cacheManager;
-        }
+        public ICacheManager<BlockHash, TransactableBlock> CacheManager { get; internal set; }
+
+        public bool Committed { get; protected set; } = false;
+
+        public bool AllowCommit { get; protected set; } = false;
 
         public static bool operator ==(TransactableBlock a, TransactableBlock b) =>
             a.BlockSize == b.BlockSize && ReadOnlyMemoryComparer<byte>.Compare(a.Data, b.Data) == 0;
@@ -83,49 +74,34 @@ namespace BrightChain.Engine.Models.Blocks
             return !a.Equals(b);
         }
 
+        public void SetCacheManager(ICacheManager<BlockHash, TransactableBlock> cacheManager)
+        {
+            this.CacheManager = cacheManager;
+        }
+
         public void Commit()
         {
-            if (!AllowCommit)
+            if (!this.AllowCommit)
             {
                 throw new BrightChainException("Block is not allowed to be committed");
             }
 
-            Committed = true;
+            this.Committed = true;
         }
 
         public void Rollback()
         {
-            Committed = false;
+            this.Committed = false;
         }
 
         public override TransactableBlock NewBlock(BlockParams blockParams, ReadOnlyMemory<byte> data)
         {
             return new TransactableBlock(
                 blockParams: new TransactableBlockParams(
-                    cacheManager: CacheManager,
+                    cacheManager: this.CacheManager,
                     allowCommit: this.AllowCommit,
                     blockParams: this.AsBlock.BlockParams),
                 data: data);
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is Block block ? block.BlockSize == this.BlockSize && ReadOnlyMemoryComparer<byte>.Compare(this.Data, block.Data) == 0 : false;
-        }
-
-        public override int GetHashCode()
-        {
-            return this.Data.GetHashCode();
-        }
-
-        public int CompareTo(TransactableBlock other)
-        {
-            return other.BlockSize == this.BlockSize ? ReadOnlyMemoryComparer<byte>.Compare(this.Data, other.Data) : (other.Data.Length > this.Data.Length ? -1 : 1);
-        }
-
-        public int CompareTo(ITransactableBlock other)
-        {
-            return other.BlockSize == this.BlockSize ? ReadOnlyMemoryComparer<byte>.Compare(Data, other.Data) : other.Data.Length > this.Data.Length ? -1 : 1;
         }
 
         public override TransactableBlockParams BlockParams
@@ -141,23 +117,17 @@ namespace BrightChain.Engine.Models.Blocks
                     privateEncrypted: false));
         }
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    // TODO: dispose managed state (managed objects)
-                }
+        public override bool Equals(object obj) =>
+            obj is Block block ? block.BlockSize == this.BlockSize && ReadOnlyMemoryComparer<byte>.Compare(this.Data, block.Data) == 0 : false;
 
-                Rollback();
-                Data = null;
+        public override int GetHashCode() =>
+            this.Data.GetHashCode();
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
-                disposedValue = true;
-            }
-        }
+        public int CompareTo(TransactableBlock other) =>
+            other.BlockSize == this.BlockSize ? ReadOnlyMemoryComparer<byte>.Compare(this.Data, other.Data) : (other.Data.Length > this.Data.Length ? -1 : 1);
+
+        public int CompareTo(ITransactableBlock other) =>
+            other.BlockSize == this.BlockSize ? ReadOnlyMemoryComparer<byte>.Compare(this.Data, other.Data) : other.Data.Length > this.Data.Length ? -1 : 1;
 
         // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
         // ~TransactableBlock()
@@ -166,11 +136,36 @@ namespace BrightChain.Engine.Models.Blocks
         //     Dispose(disposing: false);
         // }
 
+        /// <summary>
+        /// Dispose block data and memory contents.
+        /// </summary>
         public override void Dispose()
         {
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
+            this.Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Dispose block data and memory contents.
+        /// </summary>
+        /// <param name="disposing"></param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!this.disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects)
+                }
+
+                this.Rollback();
+                this.Data = null;
+
+                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+                // TODO: set large fields to null
+                this.disposedValue = true;
+            }
         }
     }
 }
