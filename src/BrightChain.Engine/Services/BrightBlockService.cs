@@ -168,18 +168,31 @@ namespace BrightChain.Engine.Services
         /// <param name="blockType"></param>
         /// <param name="blockSize"></param>
         /// <returns></returns>
-        public static DataHash CreateFileDataHash(FileInfo fileInfo, Type blockType, BlockSize blockSize)
+        public static DataHash CreateFileDataHash(FileInfo fileInfo)
+        {
+            using (Stream stream = File.OpenRead(fileInfo.FullName))
+            {
+                var dataHash = CreateStreamDataHash(stream);
+                if (dataHash.SourceDataLength != fileInfo.Length)
+                {
+                    throw new BrightChainException(nameof(dataHash.SourceDataLength));
+                }
+
+                return dataHash;
+            }
+        }
+
+        public static DataHash CreateStreamDataHash(Stream stream)
         {
             using (var sha = SHA256.Create())
             {
-                using (Stream stream = File.OpenRead(fileInfo.FullName))
-                {
-                    sha.ComputeHash(stream);
-                    return new DataHash(
-                        providedHashBytes: sha.Hash,
-                        sourceDataLength: fileInfo.Length,
-                        computed: true);
-                }
+                var streamStart = stream.Position;
+                sha.ComputeHash(stream);
+                var streamLength = stream.Position - streamStart;
+                return new DataHash(
+                    providedHashBytes: sha.Hash,
+                    sourceDataLength: streamLength,
+                    computed: true);
             }
         }
 
@@ -190,7 +203,7 @@ namespace BrightChain.Engine.Services
             var cblsEmitted = new List<ConstituentBlockListBlock>();
             var blocksUsedThisSegment = new List<BlockHash>();
             var fileInfo = new FileInfo(fileName);
-            var sourceHash = CreateFileDataHash(fileInfo: fileInfo, blockType: typeof(SourceBlock), blockSize: blockParams.BlockSize);
+            var sourceHash = CreateFileDataHash(fileInfo: fileInfo);
             var iBlockSize = BlockSizeMap.BlockSize(blockParams.BlockSize);
             var totalBytes = fileInfo.Length;
             var bytesRemaining = totalBytes;
@@ -261,25 +274,26 @@ namespace BrightChain.Engine.Services
 
         public async Task<SuperConstituentBlockListBlock> MakeSuperCBLFromCBLChain(BlockParams blockParams, IEnumerable<ConstituentBlockListBlock> chainedCbls)
         {
-            throw new NotImplementedException();
+            var dataBytes = ((ConstituentBlockListBlock[])chainedCbls)
+                    .SelectMany(c => c.Id.HashBytes.ToArray())
+                    .ToArray();
+
             return new SuperConstituentBlockListBlock(
                     blockParams: new ConstituentBlockListBlockParams(
                         blockParams: new TransactableBlockParams(
                             cacheManager: this.blockMemoryCache,
                             allowCommit: true,
                             blockParams: blockParams),
-                        sourceId: null,
-                        segmentHash: null,
-                        totalLength: 0,
+                        sourceId: chainedCbls.First().SourceId,
+                        segmentHash: new SegmentHash(dataBytes),
+                        totalLength: dataBytes.Length,
                         constituentBlocks: chainedCbls.Select(c => c.Id),
                         previous: null,
                         next: null),
-                    data: ((ConstituentBlockListBlock[])chainedCbls)
-                    .SelectMany(c => c.Id.HashBytes.ToArray())
-                    .ToArray());
+                    data: dataBytes);
         }
 
-        public async Task<Block> MakeCblOrSuperCblFromFileAsync(string fileName, BlockParams blockParams)
+        public async Task<ConstituentBlockListBlock> MakeCblOrSuperCblFromFileAsync(string fileName, BlockParams blockParams)
         {
             ConstituentBlockListBlock[] firstPass = (ConstituentBlockListBlock[])await this.MakeCBLChainFromParamsAsync(
                 fileName: fileName,
