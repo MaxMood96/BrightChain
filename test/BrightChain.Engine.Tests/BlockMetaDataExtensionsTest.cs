@@ -30,12 +30,17 @@ namespace BrightChain.Engine.Tests
             logger = new Moq.Mock<ILogger>().Object;
         }
 
-        [TestMethod]
-        public void ItExtractsMetaDataCorrectlyTest()
+        [DataTestMethod]
+        [DataRow(BlockSize.Message)]
+        [DataRow(BlockSize.Tiny)]
+        [DataRow(BlockSize.Small)]
+        [DataRow(BlockSize.Medium)]
+        [DataRow(BlockSize.Large)]
+        public void ItExtractsMetaDataCorrectlyTest(BlockSize blockSize)
         {
             var block = new EmptyDummyBlock(
                 blockParams: new BlockParams(
-                    blockSize: RandomBlockSize(),
+                    blockSize: blockSize,
                     requestTime: DateTime.Now,
                     keepUntilAtLeast: DateTime.Now.AddDays(1),
                     redundancy: Enumerations.RedundancyContractType.HeapAuto,
@@ -78,12 +83,17 @@ namespace BrightChain.Engine.Tests
             loggerMock.VerifyNoOtherCalls();
         }
 
-        [TestMethod]
-        public void ItExtractsCBLMetadataCorrectlyTest()
+        [DataTestMethod]
+        [DataRow(BlockSize.Message)]
+        [DataRow(BlockSize.Tiny)]
+        [DataRow(BlockSize.Small)]
+        [DataRow(BlockSize.Medium)]
+        [DataRow(BlockSize.Large)]
+        public void ItExtractsCBLMetadataCorrectlyTest(BlockSize blockSize)
         {
             var dummyBlock = new EmptyDummyBlock(
                 blockParams: new BlockParams(
-                blockSize: RandomBlockSize(),
+                blockSize: blockSize,
                 requestTime: DateTime.Now,
                 keepUntilAtLeast: DateTime.Now.AddDays(1),
                 redundancy: Enumerations.RedundancyContractType.HeapAuto,
@@ -143,14 +153,19 @@ namespace BrightChain.Engine.Tests
                 HashToFormattedString(sourceId.HashBytes.ToArray()));
         }
 
-        [TestMethod]
-        public void ItRestoresMetaDataCorrectlyTest()
+        [DataTestMethod]
+        [DataRow(BlockSize.Message)]
+        [DataRow(BlockSize.Tiny)]
+        [DataRow(BlockSize.Small)]
+        [DataRow(BlockSize.Medium)]
+        [DataRow(BlockSize.Large)]
+        public void ItRestoresMetaDataCorrectlyTest(BlockSize blockSize)
         {
             var testStart = DateTime.Now;
 
             var block = new EmptyDummyBlock(
                 blockParams: new BlockParams(
-                blockSize: RandomBlockSize(),
+                blockSize: blockSize,
                 requestTime: testStart,
                 keepUntilAtLeast: testStart.AddDays(1),
                 redundancy: Enumerations.RedundancyContractType.HeapAuto,
@@ -179,14 +194,19 @@ namespace BrightChain.Engine.Tests
             loggerMock.VerifyNoOtherCalls();
         }
 
-        [TestMethod]
-        public void ItRestoresCBLMetaDataCorrectlyTest()
+        [DataTestMethod]
+        [DataRow(BlockSize.Message)]
+        [DataRow(BlockSize.Tiny)]
+        [DataRow(BlockSize.Small)]
+        [DataRow(BlockSize.Medium)]
+        [DataRow(BlockSize.Large)]
+        public void ItRestoresCBLMetaDataCorrectlyTest(BlockSize blockSize)
         {
             var testStart = DateTime.Now;
 
             var dummyBlock = new EmptyDummyBlock(
                 blockParams: new BlockParams(
-                blockSize: RandomBlockSize(),
+                blockSize: blockSize,
                 requestTime: DateTime.Now,
                 keepUntilAtLeast: DateTime.Now.AddDays(1),
                 redundancy: Enumerations.RedundancyContractType.HeapAuto,

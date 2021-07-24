@@ -110,7 +110,7 @@ namespace BrightChain.Engine.Services
                 {
                     var bytesRemaining = fileInfo.Length;
                     var iBlockSize = BlockSizeMap.BlockSize(blockSize.Value);
-                    var blocksRemaining = (int)Math.Ceiling((double)(fileInfo.Length / iBlockSize));
+                    var blocksRemaining = Math.Min(1, (int)Math.Ceiling((double)(fileInfo.Length / iBlockSize)));
                     while (blocksRemaining-- > 0)
                     {
                         var finalBlock = blocksRemaining == 0;
@@ -223,7 +223,7 @@ namespace BrightChain.Engine.Services
             var iBlockSize = BlockSizeMap.BlockSize(blockParams.BlockSize);
             var totalBytes = fileInfo.Length;
             var bytesRemaining = totalBytes;
-            var brightenedBlocksExpected = (long)Math.Ceiling((double)(totalBytes / iBlockSize));
+            var brightenedBlocksExpected = (int)Math.Ceiling((double)(totalBytes / iBlockSize));
             var hashesPerSegment = BlockSizeMap.HashesPerBlock(blockParams.BlockSize);
             var segmentsExpected = (int)Math.Ceiling((decimal)(brightenedBlocksExpected / hashesPerSegment));
             var bytesPerCBL = hashesPerSegment * iBlockSize;

@@ -67,25 +67,20 @@ namespace BrightChain.Engine.Tests
         /// <summary>
         /// TODO: move to BlockHashTests.
         /// </summary>
-        [TestMethod]
-        public void ItHasCorrectHashSizesTest()
+        [DataTestMethod]
+        [DataRow(BlockSize.Message)]
+        [DataRow(BlockSize.Tiny)]
+        [DataRow(BlockSize.Small)]
+        [DataRow(BlockSize.Medium)]
+        [DataRow(BlockSize.Large)]
+        public void ItHasCorrectHashSizesTest(BlockSize blockSize)
         {
-            foreach (BlockSize blockSize in Enum.GetValues(typeof(BlockSize)))
-            {
-                if (blockSize == BlockSize.Unknown)
-                {
-                    continue;
-                }
-
-                var expectedVector = GetZeroVector(blockSize);
-                BlockHash zeroVector;
-                GenerateZeroVectorAndVerify(blockSize, out zeroVector);
-                Assert.IsNotNull(zeroVector);
-                Assert.AreEqual(expectedVector.ToString(), zeroVector.ToString());
-            }
+            var expectedVector = GetZeroVector(blockSize);
+            BlockHash zeroVector;
+            GenerateZeroVectorAndVerify(blockSize, out zeroVector);
+            Assert.IsNotNull(zeroVector);
+            Assert.AreEqual(expectedVector.ToString(), zeroVector.ToString());
         }
-
-
 
         private static long CreateRandomFile(string filePath, long totalBytes, out byte[] randomFileHash)
         {
@@ -131,9 +126,14 @@ namespace BrightChain.Engine.Tests
             return -1;
         }
 
-        [TestMethod]
+        [DataTestMethod]
+        [DataRow(BlockSize.Message)]
+        [DataRow(BlockSize.Tiny)]
+        [DataRow(BlockSize.Small)]
+        [DataRow(BlockSize.Medium)]
+        [DataRow(BlockSize.Large)]
 
-        public async Task ItBrightensBlocksAndCreatesCblsTest()
+        public async Task ItBrightensBlocksAndCreatesCblsTest(BlockSize blockSize)
         {
             var loggerMock = Mock.Get(this._logger);
 
@@ -142,7 +142,6 @@ namespace BrightChain.Engine.Tests
 
             var fileName = Path.GetTempFileName();
             byte[] sourceFileHash;
-            var blockSize = RandomBlockSize();
             var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2);
             long expectedLength = CreateRandomFile(fileName, maximumStorage - 3, out sourceFileHash); // don't land on even block mark for data testing
 
@@ -192,8 +191,13 @@ namespace BrightChain.Engine.Tests
             loggerMock.VerifyNoOtherCalls();
         }
 
-        [TestMethod]
-        public async Task ItReadsCBLsBackToDisk()
+        [DataTestMethod]
+        [DataRow(BlockSize.Message)]
+        [DataRow(BlockSize.Tiny)]
+        [DataRow(BlockSize.Small)]
+        [DataRow(BlockSize.Medium)]
+        [DataRow(BlockSize.Large)]
+        public async Task ItReadsCBLsBackToDisk(BlockSize blockSize)
         {
             var loggerMock = Mock.Get(this._logger);
 
@@ -202,7 +206,6 @@ namespace BrightChain.Engine.Tests
 
             var fileName = Path.GetTempFileName();
             byte[] sourceFileHash;
-            var blockSize = RandomBlockSize();
             var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2);
             long expectedLength = CreateRandomFile(fileName, maximumStorage - 3, out sourceFileHash); // don't land on even block mark for data testing
 
