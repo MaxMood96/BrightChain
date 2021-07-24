@@ -226,13 +226,14 @@ namespace BrightChain.Engine.Services
                 await foreach (BrightenedBlock brightenedBlock in this.StreamCreatedBrightenedBlocksFromFileAsync(fileInfo: fileInfo, knownSourceHash: sourceHash, blockParams: blockParams))
                 {
                     brightenedBlocksConsumed++;
+                    var lastBlockBytes = bytesRemaining == iBlockSize;
                     bytesRemaining -= iBlockSize;
                     bytesThisSegment += iBlockSize;
                     blocksUsedThisSegment.Add(brightenedBlock.Id);
                     blocksUsedThisSegment.AddRange(brightenedBlock.ConstituentBlocks);
                     var cblFullAfterThisBlock = ++blocksThisSegment == hashesPerSegment;
 
-                    if (cblFullAfterThisBlock)
+                    if (cblFullAfterThisBlock || lastBlockBytes)
                     {
                         segmentHasher.TransformFinalBlock(brightenedBlock.Data.ToArray(), 0, iBlockSize);
 
@@ -274,12 +275,17 @@ namespace BrightChain.Engine.Services
                 }
             }
 
+            if (brightenedBlocksConsumed <> brightenedBlocksExpected)
+            {
+                throw new BrightChainException(nameof(brightenedBlocksConsumed));
+            }
+
             return cblsEmitted;
         }
 
         public async Task<SuperConstituentBlockListBlock> MakeSuperCBLFromCBLChain(BlockParams blockParams, IEnumerable<ConstituentBlockListBlock> chainedCbls)
         {
-            var dataBytes = ((ConstituentBlockListBlock[])chainedCbls)
+            var hashBytes = chainedCbls
                     .SelectMany(c => c.Id.HashBytes.ToArray())
                     .ToArray();
 
@@ -290,28 +296,34 @@ namespace BrightChain.Engine.Services
                             allowCommit: true,
                             blockParams: blockParams),
                         sourceId: chainedCbls.First().SourceId,
-                        segmentHash: new SegmentHash(dataBytes),
-                        totalLength: dataBytes.Length,
+                        segmentHash: new SegmentHash(hashBytes),
+                        totalLength: hashBytes.Length,
                         constituentBlocks: chainedCbls.Select(c => c.Id),
                         previous: null,
                         next: null),
-                    data: dataBytes);
+                    data: Helpers.RandomDataHelper.DataFiller(
+                        inputData: hashBytes,
+                        blockSize: blockParams.BlockSize));
         }
 
         public async Task<ConstituentBlockListBlock> MakeCblOrSuperCblFromFileAsync(string fileName, BlockParams blockParams)
         {
-            ConstituentBlockListBlock[] firstPass = (ConstituentBlockListBlock[])await this.MakeCBLChainFromParamsAsync(
+            var firstPass = await this.MakeCBLChainFromParamsAsync(
                 fileName: fileName,
                 blockParams: blockParams)
                     .ConfigureAwait(false);
 
-            if (firstPass.Length == 1)
+            var count = firstPass.Count();
+            if (count == 1)
             {
-                return firstPass[0];
+                return firstPass.ElementAt(0);
             }
-            else if (firstPass.Length > BlockSizeMap.HashesPerSegment(blockParams.BlockSize))
+            else if (count > BlockSizeMap.HashesPerSegment(blockParams.BlockSize))
             {
                 throw new NotImplementedException("Super-Super-CBLs not yet implemented");
+            } else if (count == 0)
+            {
+                throw new BrightChainException("No blocks returned");
             }
 
             return await this
