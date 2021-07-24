@@ -55,14 +55,21 @@ namespace BrightChain.Engine.Models.Blocks
         /// </summary>
         /// <param name="blockSize"></param>
         /// <returns></returns>
-        public static int HashesPerSegment(BlockSize blockSize)
+        public static int HashesPerBlock(BlockSize blockSize, int exponent = 1)
         {
             if (!BlockSizeMap.HashesPerBlockMap.ContainsKey(blockSize))
             {
                 throw new KeyNotFoundException(message: nameof(blockSize));
             }
 
-            return BlockSizeMap.HashesPerBlockMap[blockSize];
+            if (exponent <= 1)
+            {
+                return BlockSizeMap.HashesPerBlockMap[blockSize];
+            }
+            else
+            {
+                return (int)Math.Pow(BlockSizeMap.HashesPerBlockMap[blockSize], 1);
+            }
         }
 
         /// <summary>

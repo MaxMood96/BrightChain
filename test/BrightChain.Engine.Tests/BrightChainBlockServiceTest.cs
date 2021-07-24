@@ -87,15 +87,9 @@ namespace BrightChain.Engine.Tests
 
 
 
-        private static long CreateRandomFile(string filePath, int sizeInMb, out byte[] randomFileHash, int sizeOffset = 0)
+        private static long CreateRandomFile(string filePath, long totalBytes, out byte[] randomFileHash)
         {
             const int writeBufferSize = 1024 * 8;
-            int totalBytes = (sizeInMb * 1024 * 1024) - sizeOffset;
-
-            if ((sizeOffset < 0) || (sizeOffset > writeBufferSize))
-            {
-                throw new Exception(nameof(sizeOffset));
-            }
 
             var bytesWritten = 0;
             var bytesRemaining = totalBytes;
@@ -106,7 +100,7 @@ namespace BrightChain.Engine.Tests
                     while (bytesWritten < totalBytes)
                     {
                         var finalBlock = bytesRemaining <= writeBufferSize;
-                        var lengthToWrite = finalBlock ? writeBufferSize - sizeOffset : writeBufferSize;
+                        var lengthToWrite = finalBlock ? (int)bytesRemaining : writeBufferSize;
                         var data = RandomDataHelper.RandomBytes(lengthToWrite);
                         Assert.AreEqual(lengthToWrite, data.Length);
                         fileStream.Write(data, 0, data.Length);
@@ -148,7 +142,9 @@ namespace BrightChain.Engine.Tests
 
             var fileName = Path.GetTempFileName();
             byte[] sourceFileHash;
-            long expectedLength = CreateRandomFile(fileName, 10, out sourceFileHash, 3); // don't land on even block mark for data testing
+            var blockSize = RandomBlockSize();
+            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2);
+            long expectedLength = CreateRandomFile(fileName, maximumStorage - 3, out sourceFileHash); // don't land on even block mark for data testing
 
             ConstituentBlockListBlock cblBlock = await brightChainService.MakeCblOrSuperCblFromFileAsync(
                 fileName: fileName,
@@ -157,14 +153,14 @@ namespace BrightChain.Engine.Tests
                     keepUntilAtLeast: DateTime.MaxValue,
                     redundancy: Enumerations.RedundancyContractType.HeapAuto,
                     privateEncrypted: false,
-                    blockSize: RandomBlockSize()));
+                    blockSize: blockSize));
 
             Dictionary<BlockHash, Block> blocks = brightChainService.GetCBLBlocks(cblBlock);
             if (cblBlock is SuperConstituentBlockListBlock)
             {
                 foreach (var blockHash in cblBlock.ConstituentBlocks)
                 {
-                    var cbl = (ConstituentBlockListBlock) blocks[blockHash];
+                    var cbl = (ConstituentBlockListBlock)blocks[blockHash];
                     Assert.IsTrue(cbl.Validate());
                     Assert.AreEqual(expectedLength, cbl.TotalLength);
                     Assert.AreEqual(
@@ -206,9 +202,10 @@ namespace BrightChain.Engine.Tests
 
             var fileName = Path.GetTempFileName();
             byte[] sourceFileHash;
-            long expectedLength = CreateRandomFile(fileName, 10, out sourceFileHash, 3); // don't land on even block mark for data testing
-
             var blockSize = RandomBlockSize();
+            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2);
+            long expectedLength = CreateRandomFile(fileName, maximumStorage - 3, out sourceFileHash); // don't land on even block mark for data testing
+
             ConstituentBlockListBlock[] cblBlocks = (ConstituentBlockListBlock[])await brightChainService.MakeCBLChainFromParamsAsync(
                 fileName: fileName,
                 blockParams: new BlockParams(

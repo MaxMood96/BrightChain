@@ -38,7 +38,7 @@ namespace BrightChain.Engine.Services
         public static long MaximumStorageLength(BlockSize blockSize)
         {
             var iBlockSize = BlockSizeMap.BlockSize(blockSize);
-            var hashesPerSegment = BlockSizeMap.HashesPerSegment(blockSize);
+            var hashesPerSegment = BlockSizeMap.HashesPerBlock(blockSize);
 
             // right now, we can contain 1 SuperCBL with hashesPerSegment blocks, and up to hashesPerSegment blocks there.
             // this means total size is hashes^2*size

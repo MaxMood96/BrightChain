@@ -90,6 +90,12 @@ namespace BrightChain.Engine.Services
                 }
             }
 
+            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize.Value, 2);
+            if (fileInfo.Length > maximumStorage)
+            {
+                throw new BrightChainException("File exceeds storage for this block size");
+            }
+
             if (blockParams.PrivateEncrypted)
             {
                 throw new NotImplementedException();
@@ -104,9 +110,10 @@ namespace BrightChain.Engine.Services
                 {
                     var bytesRemaining = fileInfo.Length;
                     var iBlockSize = BlockSizeMap.BlockSize(blockSize.Value);
-                    while (bytesRemaining > 0)
+                    var blocksRemaining = (int)Math.Ceiling((double)(fileInfo.Length / iBlockSize));
+                    while (blocksRemaining-- > 0)
                     {
-                        var finalBlock = bytesRemaining <= iBlockSize;
+                        var finalBlock = blocksRemaining == 0;
                         var bytesToRead = finalBlock ? (int)bytesRemaining : iBlockSize;
                         byte[] buffer = new byte[bytesToRead];
                         int bytesRead = inFile.Read(buffer, 0, bytesToRead);
@@ -116,6 +123,10 @@ namespace BrightChain.Engine.Services
                         {
                             throw new BrightChainException("Unexpected EOF");
                         }
+                        else if (bytesRead > iBlockSize)
+                        {
+                            throw new BrightChainExceptionImpossible(nameof(bytesRead));
+                        }
                         else if (finalBlock)
                         {
                             if (bytesRemaining != 0)
@@ -124,7 +135,9 @@ namespace BrightChain.Engine.Services
                             }
 
                             fileHasher.TransformFinalBlock(buffer, 0, bytesToRead); // notably only takes the last bytes of the file not counting filler.
-                            buffer = Helpers.RandomDataHelper.DataFiller(new ReadOnlyMemory<byte>(buffer), blockSize.Value).ToArray();
+                            buffer = Helpers.RandomDataHelper.DataFiller(
+                                inputData: new ReadOnlyMemory<byte>(buffer),
+                                blockSize: blockSize.Value).ToArray();
                         }
                         else
                         {
@@ -162,8 +175,6 @@ namespace BrightChain.Engine.Services
                     }
                 } // end using
             } // end using
-
-            yield break;
         }
 
         /// <summary>
@@ -213,7 +224,7 @@ namespace BrightChain.Engine.Services
             var totalBytes = fileInfo.Length;
             var bytesRemaining = totalBytes;
             var brightenedBlocksExpected = (long)Math.Ceiling((double)(totalBytes / iBlockSize));
-            var hashesPerSegment = BlockSizeMap.HashesPerSegment(blockParams.BlockSize);
+            var hashesPerSegment = BlockSizeMap.HashesPerBlock(blockParams.BlockSize);
             var segmentsExpected = (int)Math.Ceiling((decimal)(brightenedBlocksExpected / hashesPerSegment));
             var bytesPerCBL = hashesPerSegment * iBlockSize;
 
@@ -275,7 +286,7 @@ namespace BrightChain.Engine.Services
                 }
             }
 
-            if (brightenedBlocksConsumed <> brightenedBlocksExpected)
+            if (brightenedBlocksConsumed != brightenedBlocksExpected)
             {
                 throw new BrightChainException(nameof(brightenedBlocksConsumed));
             }
@@ -318,10 +329,11 @@ namespace BrightChain.Engine.Services
             {
                 return firstPass.ElementAt(0);
             }
-            else if (count > BlockSizeMap.HashesPerSegment(blockParams.BlockSize))
+            else if (count > BlockSizeMap.HashesPerBlock(blockParams.BlockSize))
             {
                 throw new NotImplementedException("Super-Super-CBLs not yet implemented");
-            } else if (count == 0)
+            }
+            else if (count == 0)
             {
                 throw new BrightChainException("No blocks returned");
             }
