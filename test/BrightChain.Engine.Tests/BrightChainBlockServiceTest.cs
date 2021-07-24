@@ -142,7 +142,8 @@ namespace BrightChain.Engine.Tests
 
             var fileName = Path.GetTempFileName();
             byte[] sourceFileHash;
-            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2);
+            var iBlockSize = BlockSizeMap.BlockSize(blockSize);
+            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2) * iBlockSize;
             long expectedLength = CreateRandomFile(fileName, maximumStorage - 3, out sourceFileHash); // don't land on even block mark for data testing
 
             ConstituentBlockListBlock cblBlock = await brightChainService.MakeCblOrSuperCblFromFileAsync(
@@ -206,7 +207,8 @@ namespace BrightChain.Engine.Tests
 
             var fileName = Path.GetTempFileName();
             byte[] sourceFileHash;
-            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2);
+            var iBlockSize = BlockSizeMap.BlockSize(blockSize);
+            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize, 2) * iBlockSize;
             long expectedLength = CreateRandomFile(fileName, maximumStorage - 3, out sourceFileHash); // don't land on even block mark for data testing
 
             ConstituentBlockListBlock[] cblBlocks = (ConstituentBlockListBlock[])await brightChainService.MakeCBLChainFromParamsAsync(

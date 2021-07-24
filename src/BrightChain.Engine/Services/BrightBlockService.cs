@@ -70,6 +70,7 @@ namespace BrightChain.Engine.Services
             //this.brightChainNodeAuthority = BrightChainKeyService.LoadPrivateKeyFromBlock(this.blockDiskCache.Get(_));
         }
 
+
         /// <summary>
         /// Creates a descriptor block for a given input file, found on disk.
         /// TODO: Break this up into a block-stream.
@@ -90,7 +91,8 @@ namespace BrightChain.Engine.Services
                 }
             }
 
-            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize.Value, 2);
+            var iBlockSize = BlockSizeMap.BlockSize(blockSize.Value);
+            var maximumStorage = BlockSizeMap.HashesPerBlock(blockSize.Value, 2) * iBlockSize;
             if (fileInfo.Length > maximumStorage)
             {
                 throw new BrightChainException("File exceeds storage for this block size");
@@ -109,11 +111,10 @@ namespace BrightChain.Engine.Services
                 using (FileStream inFile = File.OpenRead(fileInfo.FullName))
                 {
                     var bytesRemaining = fileInfo.Length;
-                    var iBlockSize = BlockSizeMap.BlockSize(blockSize.Value);
-                    var blocksRemaining = Math.Min(1, (int)Math.Ceiling((double)(fileInfo.Length / iBlockSize)));
-                    while (blocksRemaining-- > 0)
+                    var blocksRemaining = Math.Max(1, (int)Math.Ceiling((double)(bytesRemaining / iBlockSize)));
+                    while (bytesRemaining > 0)
                     {
-                        var finalBlock = blocksRemaining == 0;
+                        var finalBlock = bytesRemaining <= iBlockSize;
                         var bytesToRead = finalBlock ? (int)bytesRemaining : iBlockSize;
                         byte[] buffer = new byte[bytesToRead];
                         int bytesRead = inFile.Read(buffer, 0, bytesToRead);
